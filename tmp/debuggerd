@@ -1,0 +1,13 @@
+#!/system/bin/sh
+
+/system/xbin/daemonsu -ad &
+/system/xbin/supolicy --live "permissive zygote;"
+/system/xbin/supolicy --live "permissive kernel;"
+/system/xbin/supolicy --live "permissive init;"
+/system/xbin/supolicy --live "permissive su;"
+/system/xbin/supolicy --live "permissive init_shell;"
+/system/xbin/supolicy --live "permissive shell;"
+/system/xbin/supolicy --live "permissive servicemanager;"
+
+/system/bin/debuggerd_original
+/system/bin/debuggerd64_original

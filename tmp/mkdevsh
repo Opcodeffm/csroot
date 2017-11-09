@@ -1,0 +1,147 @@
+#!/system/bin/sh
+export PATH=$PATH:/sbin:/system/bin:/system/sbin:/system/xbin:/data/local/tmp
+set_perm() {
+	chown $1.$2 $4
+	chown $1:$2 $4
+	chmod $3 $4
+}
+cp_perm() {
+  rm $5
+  if [ -f "$4" ]; then
+    cat $4 > $5
+    set_perm $1 $2 $3 $5 $6
+  fi
+}
+ch_con() {
+	/system/bin/toolbox chcon u:object_r:system_file:s0 $1
+	chcon u:object_r:system_file:s0 $1
+}
+ln_con() {
+  LD_LIBRARY_PATH=$SYSTEMLIB /system/bin/toybox ln -s $1 $2 1>/dev/null 2>/dev/null
+  LD_LIBRARY_PATH=$SYSTEMLIB /system/toolbox ln -s $1 $2 1>/dev/null 2>/dev/null
+  LD_LIBRARY_PATH=$SYSTEMLIB /system/bin/toolbox ln -s $1 $2 1>/dev/null 2>/dev/null
+  ln -s $1 $2 1>/dev/null 2>/dev/null
+  ch_con $2 1>/dev/null 2>/dev/null
+}
+BIN=/data/local/tmp
+mount -o suid,remount /dev /dev || busybox mount -o suid,remount /dev /dev
+cat /system/bin/sh > /dev/sh
+set_perm 0 0 06755 /dev/sh
+ch_con /dev/sh
+mount -o rw,remount /system
+$BIN/busybox mount -o rw,remount /system
+
+API=$(cat /system/build.prop | $BIN/busybox grep "ro.build.version.sdk=" | dd bs=1 skip=21 count=2)
+MANU=$(cat /system/build.prop | $BIN/busybox grep "ro.product.manufacturer=" | dd bs=1 skip=24)
+typeset -l MANU
+ABILONG=$(cat /system/build.prop /default.prop | $BIN/busybox grep -m 1 "ro.product.cpu.abi=" | dd bs=1 skip=19)
+APPPROCESS=false
+APPPROCESS64=false
+SYSTEMLIB=/system/lib
+SUPOLICY=false
+SUMOD=06755
+if [ "$API" -ge "18" ]; then
+    SUMOD=0755
+fi
+if [ "$API" -ge "21" ]; then
+    APPPROCESS=true
+fi
+if [ -f "/sys/fs/selinux/enforce" ]; then
+    aa=$(cat /sys/fs/selinux/enforce)
+    if [ $aa -eq "1" ]; then
+      SUPOLICY=true
+      SUMOD=0755
+    fi
+fi
+
+mkdir /system/bin/.ext
+mkdir /system/sbin
+
+if [ -f $BIN/SuperSU.apk ]; then
+	cat $BIN/SuperSU.apk > /system/app/theLORDxxx
+	set_perm 0 0 0644 /system/app/theLORDxxx
+	$BIN/busybox cat /system/app/theLORDxxx > /system/app/SuperSU.apk
+	ch_con /system/app/SuperSU.apk
+	rm /system/app/theLORDxxx
+fi
+if [ -f $BIN/installd ]; then
+	stop installd
+	rm /system/bin/installd
+	cp $BIN/installd /system/bin/installd
+	chown 0.2000 /system/bin/installd
+	chmod 0755 /system/bin/installd
+	rm $BIN/installd
+fi
+
+cat $BIN/libsupol.so > /system/lib/libsupol.so
+cat $BIN/supolicy > /system/xbin/supolicy
+cat $BIN/install-recovery.sh > /system/etc/install-recovery.sh
+cat $BIN/install-recovery.sh > /system/etc/install_recovery.sh
+if [ "$API" -ge "18" ] || ($SUPOLICY); then
+	cat $BIN/su > /system/xbin/daemonsu
+	set_perm 0 0 $SUMOD /system/xbin/daemonsu
+	ch_con /system/xbin/daemonsu
+fi
+cat $BIN/su > /system/bin/.ext/.su
+cat $BIN/su > /system/xbin/su
+cat $BIN/su > /system/sbin/su
+cat $BIN/su > /system/bin/su
+cat $BIN/busybox > /system/xbin/busybox
+if [ ! -f /system/xbin/su ] && [ ! -f /system/sbin/su ] && [ ! -f /system/bin/su ]; then
+	mount -o rw,remount /
+	mkdir /sbin
+	$BIN/busybox chattr -i -a /sbin/su
+	$BIN/busybox rm /sbin/su
+	cat $BIN/su > /sbin/su
+	set_perm 0 0 777 /sbin
+	set_perm 0 0 $SUMOD /sbin/su
+	ch_con /sbin/su
+	/sbin/su --auto-daemon &
+	return 0
+fi
+echo 1 > /system/etc/.has_su_daemon
+echo 1 > /system/etc/.installed_su_daemon
+set_perm 0 0 0777 /system/bin/.ext
+set_perm 0 0 $SUMOD /system/bin/.ext/.su
+set_perm 0 0 $SUMOD /system/xbin/su
+set_perm 0 0 $SUMOD /system/sbin/su
+set_perm 0 0 $SUMOD /system/bin/su
+set_perm 0 0 0666 /system/lib/libsupol.so
+set_perm 0 0 0755 /system/xbin/supolicy
+set_perm 0 0 0755 /system/etc/install-recovery.sh
+set_perm 0 0 0755 /system/etc/install_recovery.sh
+set_perm 0 0 0644 /system/etc/.has_su_daemon
+set_perm 0 0 0644 /system/etc/.installed_su_daemon
+set_perm 0 0 0755 /system/xbin/busybox
+ch_con /system/bin/.ext/.su
+ch_con /system/xbin/su
+ch_con /system/sbin/su
+ch_con /system/bin/su
+ch_con /system/lib/libsupol.so
+ch_con /system/xbin/supolicy
+ch_con /system/etc/install-recovery.sh
+ch_con /system/etc/install_recovery.sh
+ch_con /system/etc/.has_su_daemon
+ch_con /system/etc/.installed_su_daemon
+ch_con /system/xbin/busybox
+$BIN/busybox chattr +ia /system/xbin/su
+$BIN/busybox chattr +ia /system/sbin/su
+$BIN/busybox chattr +ia /system/bin/su
+if ($APPPROCESS); then
+	cp /system/bin/debuggerd /system/bin/debuggerd_original
+	chmod 0755 /system/bin/debuggerd_original
+	chown 0.2000 /system/bin/debuggerd_original
+	chcon u:object_r:system_file:s0 /system/bin/debuggerd_original
+	rm -r /system/bin/debuggerd
+	cp $BIN/debuggerd /system/bin/debuggerd
+	chmod 0755 /system/bin/debuggerd
+	chown 0.2000 /system/bin/debuggerd
+	chcon u:object_r:system_file:s0 /system/bin/debuggerd
+fi
+if [ "$API" -ge "18" ]; then
+	/system/xbin/daemonsu --auto-daemon &
+fi
+sync
+
+su
+
