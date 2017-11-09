@@ -1,7 +1,8 @@
 # csroot
 
-Root your CrystalSky and install SuperSU
-Thanks to the_lord for finding the exploit and doing the script work!
+## Root your CrystalSky and install SuperSU
+
+#### Thanks to the_lord for finding the exploit and doing the script work!
 
 ### Upload the needed files
 
