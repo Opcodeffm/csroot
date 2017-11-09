@@ -59,3 +59,5 @@ root@zs600b:/data/local/tmp #
 ```
 
 ### Reboot and run SuperSU from the App Menu
+
+This has been tested on a CrystalSky 7.85 Version 02.04.02.00
